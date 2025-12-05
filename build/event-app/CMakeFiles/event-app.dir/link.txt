@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,-search_paths_first -Wl,-headerpad_max_install_names "CMakeFiles/event-app.dir/main.cpp.o" "CMakeFiles/event-app.dir/bus.cpp.o" "CMakeFiles/event-app.dir/movement_sys.cpp.o" -o event-app

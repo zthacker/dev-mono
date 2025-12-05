@@ -1,0 +1,5 @@
+/Users/zachthacker/CLionProjects/dailies/CMakeFiles/edit_cache.dir
+/Users/zachthacker/CLionProjects/dailies/CMakeFiles/rebuild_cache.dir
+/Users/zachthacker/CLionProjects/dailies/event-app/CMakeFiles/event-app.dir
+/Users/zachthacker/CLionProjects/dailies/event-app/CMakeFiles/edit_cache.dir
+/Users/zachthacker/CLionProjects/dailies/event-app/CMakeFiles/rebuild_cache.dir

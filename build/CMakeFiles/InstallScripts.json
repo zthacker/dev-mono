@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/zachthacker/CLionProjects/dailies/build/cmake_install.cmake",
+		"/Users/zachthacker/CLionProjects/dailies/build/event-app/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
