@@ -1,0 +1,101 @@
+# =========================
+# C/C++ Compiled Objects
+# =========================
+*.o
+*.obj
+*.slo
+*.lo
+
+# =========================
+# C/C++ Libraries
+# =========================
+*.so
+*.so.*
+*.dylib
+*.dll
+*.a
+*.lib
+*.lai
+*.la
+
+# =========================
+# Executables (General)
+# =========================
+*.exe
+*.out
+*.app
+
+# =========================
+# C/C++ Build Systems
+# =========================
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CMakeScripts/
+cmake-build-*/
+CTestTestfile.cmake
+cpack_options.cmake
+
+# Make
+.dep/
+Makefile.bak
+
+# Ninja
+build.ninja
+
+# =========================
+# Golang
+# =========================
+# Binaries (Specific names can be added here)
+# It's best practice to output builds to a directory like /bin/
+# but these catch common root-level builds.
+*.test
+
+# Workspace file (if using Go workspaces)
+go.work
+go.work.sum
+
+# Vendor directory (Uncomment if you do NOT want to commit dependencies)
+# vendor/
+
+# =========================
+# Directories & Output
+# =========================
+# Common output directories for both languages
+bin/
+build/
+dist/
+out/
+debug/
+release/
+
+# =========================
+# IDEs & Editors
+# =========================
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# JetBrains (CLion / GoLand)
+.idea/
+cmake-build-debug/
+cmake-build-release/
+*.iws
+*.iml
+*.ipr
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
