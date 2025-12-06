@@ -65,6 +65,7 @@ go.work.sum
 # Common output directories for both languages
 bin/
 build/
+build-*/
 dist/
 out/
 debug/
@@ -101,3 +102,4 @@ cmake-build-release/
 Thumbs.db
 
 .idea/
+build/
