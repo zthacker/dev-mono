@@ -23,6 +23,13 @@ const (
 	OP_VMAG   // Vector magnitude (returns float)
 	OP_VEC3   // Pop 3 floats and push as vec3
 
+	// Batch (SIMD) Operations
+	OP_BATCH_PACK   // Pop 4 Vec3s, Push 1 batch
+	OP_BATCH_VADD   // Batch + Batch
+	OP_BATCH_VSUB   // Batch - Batch
+	OP_BATCH_VMUL   // Batch . Batch (Dot Product)
+	OP_BATCH_VSCALE // Batch * ScalarArray
+
 	// Control flow operations
 	OP_HALT // stop execution
 )
@@ -63,6 +70,16 @@ func (op OpCode) String() string {
 		return "VCROSS"
 	case OP_VMAG:
 		return "VMAG"
+	case OP_BATCH_PACK:
+		return "BATCH_PACK"
+	case OP_BATCH_VADD:
+		return "BATCH_VADD"
+	case OP_BATCH_VSUB:
+		return "BATCH_VSUB"
+	case OP_BATCH_VMUL:
+		return "BATCH_VMUL"
+	case OP_BATCH_VSCALE:
+		return "BATCH_VSCALE"
 	default:
 		return "UNKNOWN_OPCODE"
 	}

@@ -150,6 +150,22 @@ func (vm *VM) Run() error {
 			if err := vm.opVec3(); err != nil {
 				return fmt.Errorf("VEC3 failed: %v", err)
 			}
+		case bytecode.OP_BATCH_PACK:
+			if err := vm.opBatchPack(); err != nil {
+				return fmt.Errorf("BATCH_PACK failed: %v", err)
+			}
+		case bytecode.OP_BATCH_VADD:
+			if err := vm.opBatchVAdd(); err != nil {
+				return fmt.Errorf("BATCH_VADD failed: %v", err)
+			}
+		case bytecode.OP_BATCH_VSUB:
+			if err := vm.opBatchVSub(); err != nil {
+				return fmt.Errorf("BATCH_VSUB failed: %v", err)
+			}
+		case bytecode.OP_BATCH_VMUL:
+			if err := vm.opBatchVMul(); err != nil {
+				return fmt.Errorf("BATCH_VMUL failed: %v", err)
+			}
 		case bytecode.OP_HALT:
 			// Stop execution
 			return nil

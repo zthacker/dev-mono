@@ -9,10 +9,11 @@ import (
 type ValueType uint8
 
 const (
-	TYPE_FLOAT ValueType = iota // floating-point number
-	TYPE_BOOL                   // boolean value
-	TYPE_NIL                    // nil value
-	TYPE_VEC3                   // 3D vector
+	TYPE_FLOAT      ValueType = iota // floating-point number
+	TYPE_BOOL                        // boolean value
+	TYPE_NIL                         // nil value
+	TYPE_VEC3                        // 3D vector
+	TYPE_VEC3_BATCH                  // batch of 3D vectors
 )
 
 // Value represents a runtime value in the VM
@@ -50,6 +51,13 @@ func NewVec3(v types.Vec3) Value {
 	return Value{Type: TYPE_VEC3, Ptr: unsafe.Pointer(vec)}
 }
 
+func NewVec3Batch(b types.Vec3Batch) Value {
+	// allocate slice on heap and store pointer
+	batch := new(types.Vec3Batch)
+	*batch = b
+	return Value{Type: TYPE_VEC3_BATCH, Ptr: unsafe.Pointer(batch)}
+}
+
 // ============= Type Checking =============
 
 func (v Value) IsFloat() bool {
@@ -66,6 +74,10 @@ func (v Value) IsNil() bool {
 
 func (v Value) IsVec3() bool {
 	return v.Type == TYPE_VEC3
+}
+
+func (v Value) IsVec3Batch() bool {
+	return v.Type == TYPE_VEC3_BATCH
 }
 
 // ============= Conversions =============
@@ -85,6 +97,13 @@ func (v Value) AsVec3() types.Vec3 {
 	return *(*types.Vec3)(v.Ptr)
 }
 
+func (v Value) AsVec3Batch() types.Vec3Batch {
+	if v.Type != TYPE_VEC3_BATCH {
+		return types.Vec3Batch{}
+	}
+	return *(*types.Vec3Batch)(v.Ptr)
+}
+
 // String representation for debugging
 func (v Value) String() string {
 	switch v.Type {
@@ -100,6 +119,9 @@ func (v Value) String() string {
 	case TYPE_VEC3:
 		vec := v.AsVec3()
 		return vec.String()
+	case TYPE_VEC3_BATCH:
+		b := v.AsVec3Batch()
+		return b.String()
 	default:
 		return "unknown"
 	}
