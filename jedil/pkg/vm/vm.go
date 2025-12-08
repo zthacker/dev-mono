@@ -117,7 +117,39 @@ func (vm *VM) Run() error {
 
 			result := a.AsFloat() / b.AsFloat()
 			vm.stack.Push(NewFloat(result))
+		case bytecode.OP_VADD:
+			if err := vm.opVAdd(); err != nil {
+				return fmt.Errorf("VADD failed: %v", err)
+			}
 
+		case bytecode.OP_VSUB:
+			if err := vm.opVSub(); err != nil {
+				return fmt.Errorf("VSUB failed: %v", err)
+			}
+
+		case bytecode.OP_VMUL:
+			if err := vm.opVMul(); err != nil {
+				return fmt.Errorf("VMUL failed: %v", err)
+			}
+
+		case bytecode.OP_VSCALE:
+			if err := vm.opVScale(); err != nil {
+				return fmt.Errorf("VSCALE failed: %v", err)
+			}
+
+		case bytecode.OP_VCROSS:
+			if err := vm.opVCross(); err != nil {
+				return fmt.Errorf("VCROSS failed: %v", err)
+			}
+
+		case bytecode.OP_VMAG:
+			if err := vm.opVMag(); err != nil {
+				return fmt.Errorf("VMAG failed: %v", err)
+			}
+		case bytecode.OP_VEC3:
+			if err := vm.opVec3(); err != nil {
+				return fmt.Errorf("VEC3 failed: %v", err)
+			}
 		case bytecode.OP_HALT:
 			// Stop execution
 			return nil
