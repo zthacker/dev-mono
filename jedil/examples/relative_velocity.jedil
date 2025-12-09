@@ -1,0 +1,5 @@
+// Calculate relative velocity between two objects
+
+let v1 = vec3(29.78, 0, 0) // Earth vel (km/s)
+let v2 = vec3(25.0, 5.0, 2.0) // some Asteroid vel
+return v2 - v1

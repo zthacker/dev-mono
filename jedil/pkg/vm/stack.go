@@ -56,6 +56,13 @@ func (s *Stack) Reset() {
 	s.top = 0
 }
 
+func (s *Stack) Get(offset int) (Value, error) {
+	if offset < 0 || offset >= s.top {
+		return Value{}, fmt.Errorf("stack get: index %d out of bounds", offset)
+	}
+	return s.values[offset], nil
+}
+
 // String returns a string representation of the stack for debugging.
 func (s *Stack) String() string {
 	if s.top == 0 {

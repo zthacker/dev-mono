@@ -7,6 +7,7 @@ const (
 	// Stack operations
 	OP_PUSH OpCode = iota // push a constant value onto stack
 	OP_POP                // pop value from stack
+	OP_LOAD               // load variable from stack
 
 	// Arithmetic operations
 	OP_ADD // pop 2 values, add them, push results
@@ -48,6 +49,8 @@ func (op OpCode) String() string {
 		return "OP_PUSH"
 	case OP_POP:
 		return "OP_POP"
+	case OP_LOAD:
+		return "OP_LOAD"
 	case OP_ADD:
 		return "OP_ADD"
 	case OP_SUB:

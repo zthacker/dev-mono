@@ -1,0 +1,5 @@
+// Verify a vector is a unit vector (magnitude = 1)
+
+let v = vec3(0.6, 0.8, 0.0)
+let m = mag(v)
+return m  // Should be 1.0 for unit vector

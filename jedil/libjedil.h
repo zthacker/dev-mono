@@ -91,6 +91,8 @@ extern "C" {
 
 extern char* jedil_get_last_error(void);
 extern void* jedil_create_program(uint8_t* bytecode_data, size_t length);
+extern void* jedil_compile_file(char* filepath);
+extern void* jedil_compile_source(char* sourceStr);
 extern void jedil_free_program(void* program);
 extern int jedil_execute_vec3(void* program, void* input_data, size_t input_len, double* result_x, double* result_y, double* result_z);
 extern int jedil_execute_float(void* program, void* input_data, size_t input_len, double* result);

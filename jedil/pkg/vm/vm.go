@@ -42,8 +42,24 @@ func (vm *VM) Run() error {
 			if err != nil {
 				return fmt.Errorf("POP failed: %v", err)
 			}
+		case bytecode.OP_LOAD:
+			// load variable from stack (Args is index)
+			// get the offset
+			offset := int(inst.Args)
+
+			// get the value at the offset -- bounds check dont in Get()
+			val, err := vm.stack.Get(offset)
+			if err != nil {
+				return fmt.Errorf("LOAD failed: %v", err)
+			}
+
+			// push the value onto the top of the stack
+			err = vm.stack.Push(val)
+			if err != nil {
+				return fmt.Errorf("LOAD failed: %v", err)
+			}
 		case bytecode.OP_ADD:
-			// pop 2 values, add them, push result
+			// pop 2 values, add them, push result (polymorphic: float or vec3)
 			b, err := vm.stack.Pop()
 			if err != nil {
 				return fmt.Errorf("ADD failed: %v", err)
@@ -53,15 +69,24 @@ func (vm *VM) Run() error {
 				return fmt.Errorf("ADD failed: %v", err)
 			}
 
-			// type check
-			if !a.IsFloat() || !b.IsFloat() {
-				return fmt.Errorf("ADD requires two float values")
-			}
-
-			result := NewFloat(a.AsFloat() + b.AsFloat())
-			err = vm.stack.Push(result)
-			if err != nil {
-				return fmt.Errorf("ADD failed: %v", err)
+			// Polymorphic: handle both floats and vectors
+			if a.IsFloat() && b.IsFloat() {
+				result := NewFloat(a.AsFloat() + b.AsFloat())
+				err = vm.stack.Push(result)
+				if err != nil {
+					return fmt.Errorf("ADD failed: %v", err)
+				}
+			} else if a.IsVec3() && b.IsVec3() {
+				// Vector addition
+				v1 := a.AsVec3()
+				v2 := b.AsVec3()
+				result := NewVec3(v1.Add(v2))
+				err = vm.stack.Push(result)
+				if err != nil {
+					return fmt.Errorf("ADD failed: %v", err)
+				}
+			} else {
+				return fmt.Errorf("ADD requires two floats or two vec3s")
 			}
 		case bytecode.OP_SUB:
 			b, err := vm.stack.Pop()
@@ -73,12 +98,18 @@ func (vm *VM) Run() error {
 				return fmt.Errorf("SUB failed (operand a): %v", err)
 			}
 
-			if !a.IsFloat() || !b.IsFloat() {
-				return fmt.Errorf("SUB requires float operands")
+			// Polymorphic: handle both floats and vectors
+			if a.IsFloat() && b.IsFloat() {
+				result := a.AsFloat() - b.AsFloat()
+				vm.stack.Push(NewFloat(result))
+			} else if a.IsVec3() && b.IsVec3() {
+				v1 := a.AsVec3()
+				v2 := b.AsVec3()
+				result := NewVec3(v1.Sub(v2))
+				vm.stack.Push(result)
+			} else {
+				return fmt.Errorf("SUB requires two floats or two vec3s")
 			}
-
-			result := a.AsFloat() - b.AsFloat()
-			vm.stack.Push(NewFloat(result))
 
 		case bytecode.OP_MUL:
 			b, err := vm.stack.Pop()
@@ -90,12 +121,25 @@ func (vm *VM) Run() error {
 				return fmt.Errorf("MUL failed (operand a): %v", err)
 			}
 
-			if !a.IsFloat() || !b.IsFloat() {
-				return fmt.Errorf("MUL requires float operands")
+			// Polymorphic: scalar * scalar, or vec3 * scalar (scaling)
+			if a.IsFloat() && b.IsFloat() {
+				result := a.AsFloat() * b.AsFloat()
+				vm.stack.Push(NewFloat(result))
+			} else if a.IsVec3() && b.IsFloat() {
+				// vec * scalar
+				v := a.AsVec3()
+				s := b.AsFloat()
+				result := NewVec3(v.Scale(s))
+				vm.stack.Push(result)
+			} else if a.IsFloat() && b.IsVec3() {
+				// scalar * vec
+				s := a.AsFloat()
+				v := b.AsVec3()
+				result := NewVec3(v.Scale(s))
+				vm.stack.Push(result)
+			} else {
+				return fmt.Errorf("MUL requires floats or vec3*float")
 			}
-
-			result := a.AsFloat() * b.AsFloat()
-			vm.stack.Push(NewFloat(result))
 
 		case bytecode.OP_DIV:
 			b, err := vm.stack.Pop()

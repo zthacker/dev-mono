@@ -1,0 +1,13 @@
+// Calculate the impact parameter for close approach
+// b = |h| / |v_rel| where h = r_rel × v_rel
+
+let r_earth = vec3(0,0,0)
+let r_asteroid = vec3(100000, 5000, 0) // km
+let v_earth = vec3(29.78, 0, 0)
+let v_asteroid = vec3(25.0, 5.0, 2.0)
+
+let r_rel = r_asteroid - r_earth
+let v_rel = v_asteroid - v_earth
+let h = cross(r_rel, v_rel)
+
+return mag(h) / mag(v_rel) // impact parameter in km

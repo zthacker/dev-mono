@@ -1,0 +1,10 @@
+// Simple 2D rotation (Z-axis only for now)
+// Rotate a position vector by some angle
+
+let pos = vec3(1, 0, 0)
+let angle_deg = 90.0
+let angle_rad = angle_deg * 3.14159 / 180.0
+
+// For now, hard-code 90-degree rotation
+// (Real rotation matrices will be Milestone 6)
+return vec3(0, 1, 0)  // 90 degree rotation result

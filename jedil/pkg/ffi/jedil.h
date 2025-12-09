@@ -47,6 +47,14 @@ typedef enum {
 // Returns: Opaque program handle (NULL on error)
 JedilProgram jedil_create_program(const uint8_t* bytecode, size_t len);
 
+// Compile a .jedil source file to a program (HOT-RELOAD!)
+// Returns: Opaque program handle (NULL on error)
+JedilProgram jedil_compile_file(const char* filepath);
+
+// Compile .jedil source code string to a program
+// Returns: Opaque program handle (NULL on error)
+JedilProgram jedil_compile_source(const char* source);
+
 // Free a program
 void jedil_free_program(JedilProgram program);
 

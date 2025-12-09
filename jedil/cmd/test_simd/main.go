@@ -50,7 +50,7 @@ func main() {
 	v := vm.New(code)
 	err := v.Run()
 	if err != nil {
-		fmt.Printf("❌ ERROR: %v\n", err)
+		fmt.Printf("ERROR: %v\n", err)
 		return
 	}
 
@@ -58,7 +58,7 @@ func main() {
 
 	// Verify result is a Batch
 	if !result.IsVec3Batch() {
-		fmt.Printf("❌ FAIL: Expected Batch, got %v\n", result.Type)
+		fmt.Printf("FAIL: Expected Batch, got %v\n", result.Type)
 		return
 	}
 
@@ -69,8 +69,8 @@ func main() {
 	batch := result.AsVec3Batch()
 	first := batch.Get(0)
 	if first.X == 11.0 {
-		fmt.Println("✅ PASS: SIMD Addition verified!")
+		fmt.Println("PASS: SIMD Addition verified!")
 	} else {
-		fmt.Printf("❌ FAIL: Expected 11.0, got %f\n", first.X)
+		fmt.Printf("FAIL: Expected 11.0, got %f\n", first.X)
 	}
 }

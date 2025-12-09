@@ -10,10 +10,36 @@ import (
 	"encoding/binary"
 	"fmt"
 	"jedil/pkg/bytecode"
+	"jedil/pkg/compiler"
 	"jedil/pkg/types"
 	"jedil/pkg/vm"
+	"os"
 	"unsafe"
 )
+
+// ============================================================================
+// VM Registry (to avoid passing Go pointers to C)
+// ============================================================================
+
+var vmRegistry = make(map[int]*vm.VM)
+var nextVMHandle = 1
+
+func registerVM(v *vm.VM) unsafe.Pointer {
+	handle := nextVMHandle
+	nextVMHandle++
+	vmRegistry[handle] = v
+	return unsafe.Pointer(uintptr(handle))
+}
+
+func getVM(handle unsafe.Pointer) *vm.VM {
+	h := int(uintptr(handle))
+	return vmRegistry[h]
+}
+
+func unregisterVM(handle unsafe.Pointer) {
+	h := int(uintptr(handle))
+	delete(vmRegistry, h)
+}
 
 // ============================================================================
 // Error Handling
@@ -63,14 +89,57 @@ func jedil_create_program(bytecode_data *C.uint8_t, length C.size_t) unsafe.Poin
 	// Create VM
 	v := vm.New(instructions)
 
-	// Return opaque handle
-	return unsafe.Pointer(v)
+	// Register and return handle
+	return registerVM(v)
+}
+
+//export jedil_compile_file
+func jedil_compile_file(filepath *C.char) unsafe.Pointer {
+	// Convert C string to Go string
+	path := C.GoString(filepath)
+
+	// Read the file
+	sourceBytes, err := os.ReadFile(path)
+	if err != nil {
+		setError(fmt.Errorf("failed to read file %s: %v", path, err))
+		return nil
+	}
+
+	// Compile the source
+	source := string(sourceBytes)
+	instructions, err := compiler.CompileSource(source)
+	if err != nil {
+		setError(fmt.Errorf("compilation failed: %v", err))
+		return nil
+	}
+
+	// Create VM
+	v := vm.New(instructions)
+	setError(nil)
+	return registerVM(v)
+}
+
+//export jedil_compile_source
+func jedil_compile_source(sourceStr *C.char) unsafe.Pointer {
+	// Convert C string to Go string
+	source := C.GoString(sourceStr)
+
+	// Compile the source
+	instructions, err := compiler.CompileSource(source)
+	if err != nil {
+		setError(fmt.Errorf("compilation failed: %v", err))
+		return nil
+	}
+
+	// Create VM
+	v := vm.New(instructions)
+	setError(nil)
+	return registerVM(v)
 }
 
 //export jedil_free_program
 func jedil_free_program(program unsafe.Pointer) {
-	// Go's GC will handle cleanup
-	// This is just for API symmetry with C conventions
+	unregisterVM(program)
 }
 
 // ============================================================================
@@ -79,7 +148,7 @@ func jedil_free_program(program unsafe.Pointer) {
 
 //export jedil_execute_vec3
 func jedil_execute_vec3(program unsafe.Pointer, input_data unsafe.Pointer, input_len C.size_t, result_x *C.double, result_y *C.double, result_z *C.double) C.int {
-	v := (*vm.VM)(program)
+	v := getVM(program)
 
 	// Execute
 	err := v.Run()
@@ -111,7 +180,7 @@ func jedil_execute_vec3(program unsafe.Pointer, input_data unsafe.Pointer, input
 
 //export jedil_execute_float
 func jedil_execute_float(program unsafe.Pointer, input_data unsafe.Pointer, input_len C.size_t, result *C.double) C.int {
-	v := (*vm.VM)(program)
+	v := getVM(program)
 
 	err := v.Run()
 	if err != nil {
