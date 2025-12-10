@@ -8,6 +8,7 @@ import (
 // VM represents the virtual machine.
 type VM struct {
 	stack *Stack                 // the VM stack
+	callStack *CallStack // function CallStack
 	code  []bytecode.Instruction // bytecode instructions to execute
 	ip    int                    // instruction pointer
 }
@@ -16,6 +17,7 @@ type VM struct {
 func New(code []bytecode.Instruction) *VM {
 	return &VM{
 		stack: NewStack(),
+		callStack: NewCallStack(),
 		code:  code,
 		ip:    0,
 	}
@@ -44,10 +46,15 @@ func (vm *VM) Run() error {
 			}
 		case bytecode.OP_LOAD:
 			// load variable from stack (Args is index)
-			// get the offset
 			offset := int(inst.Args)
 
-			// get the value at the offset -- bounds check dont in Get()
+			// If we're inside a function, adjust offset relative to basePointer
+			if vm.callStack.top > 0 {
+				frame, _ := vm.callStack.Peek()
+				offset = frame.basePointer + offset
+			}
+
+			// get the value at the offset -- bounds check done in Get()
 			val, err := vm.stack.Get(offset)
 			if err != nil {
 				return fmt.Errorf("LOAD failed: %v", err)
@@ -210,6 +217,74 @@ func (vm *VM) Run() error {
 			if err := vm.opBatchVMul(); err != nil {
 				return fmt.Errorf("BATCH_VMUL failed: %v", err)
 			}
+		case bytecode.OP_CALL:
+			funcAddress := int(inst.Args)
+
+			// validate address
+			if funcAddress < 0 || funcAddress >= len(vm.code) {
+				return fmt.Errorf("CALL: invalid function address %d", funcAddress)
+			}
+
+			// Pop parameter count (pushed before OP_CALL)
+			paramCountVal, err := vm.stack.Pop()
+			if err != nil {
+				return fmt.Errorf("CALL failed to get param count: %v", err)
+			}
+			paramCount := int(paramCountVal.AsFloat())
+
+			// Parameters are on stack before param count
+			// Calculate basePointer: where the first argument is
+			// If we have 2 params, and current top is N, params are at [N-2, N-1]
+			basePointer := vm.stack.top - paramCount
+
+			frame := CallFrame{
+				returnAddress: vm.ip,        // next instruction after call
+				basePointer:   basePointer,  // where parameters begin
+				localCount:    paramCount,   // start with just params
+			}
+
+			if err := vm.callStack.Push(frame); err != nil {
+				return fmt.Errorf("CALL failed: %v", err)
+			}
+
+			// jump to function
+			vm.ip = funcAddress
+		case bytecode.OP_RET:
+			returnCount := int(inst.Args)
+
+			// pop call frame
+			frame, err := vm.callStack.Pop()
+			if err != nil {
+				return fmt.Errorf("RET failed: %v", err)
+			}
+
+			// collect return values
+			returnValues := make([]Value, returnCount)
+			for i := returnCount - 1; i >= 0; i-- {
+				val, err := vm.stack.Pop()
+				if err != nil {
+					return fmt.Errorf("RET failed: %v", err)
+				}
+				returnValues[i] = val
+			}
+
+			// clean up the stack by removing locals and parameters
+			vm.stack.top = frame.basePointer
+
+			// push return values back
+			for _, val := range returnValues {
+				if err := vm.stack.Push(val); err != nil {
+					return fmt.Errorf("RET failed: %v", err)
+				}
+			}
+
+			// restore instruction pointer
+			vm.ip = frame.returnAddress
+
+		case bytecode.OP_JMP:
+			// Unconditional jump to address in Args
+			vm.ip = int(inst.Args)
+
 		case bytecode.OP_HALT:
 			// Stop execution
 			return nil

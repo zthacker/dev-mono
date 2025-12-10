@@ -9,6 +9,11 @@ const (
 	OP_POP                // pop value from stack
 	OP_LOAD               // load variable from stack
 
+	// Function calls
+	OP_CALL // Call a function (Args = funtion bytecode address)
+	OP_RET // Return from a function (Args = return value count)
+	OP_STORE // Store a value to the stack offset (Args = offset) -- optional for now
+
 	// Arithmetic operations
 	OP_ADD // pop 2 values, add them, push results
 	OP_SUB // pop 2 values, subtract them, push results
@@ -32,6 +37,7 @@ const (
 	OP_BATCH_VSCALE // Batch * ScalarArray
 
 	// Control flow operations
+	OP_JMP  // Unconditional jump (Args = target address)
 	OP_HALT // stop execution
 )
 
@@ -51,6 +57,12 @@ func (op OpCode) String() string {
 		return "OP_POP"
 	case OP_LOAD:
 		return "OP_LOAD"
+	case OP_CALL:
+		return "OP_CALL"
+	case OP_RET:
+		return "OP_RET"
+	case OP_STORE:
+		return "OP_STORE"
 	case OP_ADD:
 		return "OP_ADD"
 	case OP_SUB:
@@ -83,6 +95,8 @@ func (op OpCode) String() string {
 		return "BATCH_VMUL"
 	case OP_BATCH_VSCALE:
 		return "BATCH_VSCALE"
+	case OP_JMP:
+		return "OP_JMP"
 	default:
 		return "UNKNOWN_OPCODE"
 	}
