@@ -7,7 +7,7 @@ import (
 )
 
 func runTest(name string, source string, expected string) {
-	fmt.Printf("\n🧪 Test: %s\n", name)
+	fmt.Printf("\nTest: %s\n", name)
 	fmt.Printf("Source:\n%s\n", source)
 
 	// Compile
