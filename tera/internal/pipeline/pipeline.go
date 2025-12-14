@@ -21,6 +21,9 @@ func RunPipeline(steps []protocols.PipelineStep, rawData []byte) {
 			log.Printf("[%s] FAILED: %v\n", step.Name(), err)
 			return
 		}
+
+		fmt.Printf("[%s] Result: %X (%d bytes)\n", step.Name(), currentData, len(currentData))
+
 	}
 
 	fmt.Printf("--- Pipeline Success! Final Output: %X ---\n", currentData)

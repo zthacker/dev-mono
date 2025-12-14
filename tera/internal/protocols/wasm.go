@@ -7,6 +7,7 @@ import (
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
 type WASMStep struct {
@@ -21,16 +22,33 @@ func NewWASMStep(ctx context.Context, wasmFile string) (*WASMStep, error) {
 	// Initialize Runtime
 	r := wazero.NewRuntime(ctx)
 
+	// Enable WASI
+	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+
 	// Read source
 	wasmBytes, err := os.ReadFile(wasmFile)
 	if err != nil {
 		return nil, err
 	}
 
-	// Instantiate
-	mod, err := r.Instantiate(ctx, wasmBytes)
+	// Compile the module
+	compiledMod, err := r.CompileModule(ctx, wasmBytes)
 	if err != nil {
 		return nil, err
+	}
+
+	// Instantiate without calling _start
+	modConfig := wazero.NewModuleConfig().WithName("").WithStartFunctions()
+	mod, err := r.InstantiateModule(ctx, compiledMod, modConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// Call _initialize if it exists (for WASI reactor modules)
+	if initFn := mod.ExportedFunction("_initialize"); initFn != nil {
+		if _, err := initFn.Call(ctx); err != nil {
+			return nil, fmt.Errorf("failed to initialize WASM module: %v", err)
+		}
 	}
 
 	malloc := mod.ExportedFunction("allocate_buffer")
@@ -43,7 +61,7 @@ func NewWASMStep(ctx context.Context, wasmFile string) (*WASMStep, error) {
 		return nil, fmt.Errorf("failed to allocate shared buffer: %v", err)
 	}
 
-	sharedPtr := results[0] // This is our permanent "PO Box"
+	sharedPtr := results[0]
 
 	return &WASMStep{
 		Module:      mod,
@@ -53,7 +71,7 @@ func NewWASMStep(ctx context.Context, wasmFile string) (*WASMStep, error) {
 	}, nil
 }
 
-func (w *WASMStep) Name() string { return "User-WASM-C++" }
+func (w *WASMStep) Name() string { return "User-WASM" }
 
 func (w *WASMStep) Process(ctx context.Context, data []byte) ([]byte, error) {
 
@@ -81,7 +99,7 @@ func (w *WASMStep) Process(ctx context.Context, data []byte) ([]byte, error) {
 
 	// find a better way than just do a make here -- not a fan
 	finalData := make([]byte, len(out))
-	copy(finalData, data)
+	copy(finalData, out)
 
 	return finalData, nil
 
