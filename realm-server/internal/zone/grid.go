@@ -1,10 +1,9 @@
 package zone
 
-// Uncomment when implementing:
-// import (
-// 	"realm-server/internal/entity"
-// 	"realm-server/pkg/math"
-// )
+import (
+	"realm-server/internal/entity"
+	"realm-server/pkg/math"
+)
 
 // Grid implements spatial partitioning for efficient neighbor queries.
 // The zone is divided into cells; each cell tracks which entities are in it.
@@ -19,17 +18,17 @@ package zone
 // - Large cells (100+ units): Fewer cells, but more entities per cell
 // - Typical: 30-50 units (matches view distance / 3)
 type Grid struct {
-	cellSize float32
-	cellsX   int
-	cellsZ   int
-	// bounds math.WorldBounds // Uncomment when implementing
-	cells []Cell
+	cellSize float32          // how big each cell is -- i.e. 50 units
+	cellsX   int              // how many cells across (columns)
+	cellsZ   int              // how many cells deep (rows)
+	bounds   math.WorldBounds // The world area this grid covers
+	cells    []Cell           // all the cells stored in a flat array
 }
 
 // Cell contains entities within a spatial region.
 type Cell struct {
 	// Use a map for O(1) add/remove
-	// entities map[entity.EntityID]entity.Entity
+	entities map[entity.EntityID]entity.Entity
 
 	// Or use slices if entity count per cell is small
 	// players []*entity.Player
@@ -41,31 +40,60 @@ type CellCoord struct {
 	X, Z int
 }
 
-// TODO: Implement Grid:
-//
-// func NewGrid(bounds math.WorldBounds, cellSize float32) *Grid
-//   - Calculate cellsX, cellsZ from bounds and cellSize
-//   - Allocate cells slice
-//
-// func (g *Grid) WorldToCell(pos math.Vec3) CellCoord
-//   - Convert world position to cell coordinates
-//   - Clamp to valid range
-//
-// func (g *Grid) CellToIndex(coord CellCoord) int
-//   - Convert 2D coord to 1D array index
-//   - return coord.Z * g.cellsX + coord.X
-//
-// func (g *Grid) AddEntity(e entity.Entity)
-//   - Get cell for entity position
-//   - Add to cell's entity list
-//
-// func (g *Grid) RemoveEntity(id entity.EntityID, pos math.Vec3)
-//   - Get cell for position
-//   - Remove from cell
-//
-// func (g *Grid) MoveEntity(e entity.Entity, oldPos, newPos math.Vec3)
-//   - Check if cell changed
-//   - If so, remove from old, add to new
+func NewGrid(bounds math.WorldBounds, cellSize float32) *Grid {
+	// Ex: World Bounds is Min(0,0,0) to Max(1000,100,600)
+	// Cell Size: 50
+	// Width (X) = 1000 - 0 = 1000 units
+	// Depth (Z) = 600 - 0 = 600 units
+	// Y is height, which isn't relevant in a 2D grid
+
+	// Cell across (X)  1000 / 50 = 20 cells
+	// Cells deep (Z) 600 / 50 = 12 cells
+	// Total cells = 20 * 12 = 240 cells
+
+	worldWidth := bounds.Max.X - bounds.Min.X
+	worldDepth := bounds.Max.Z - bounds.Min.Z
+
+	// int() truncates, so add 1 to handle partial cells
+	cellsX := int(worldWidth/cellSize) + 1
+	cellsZ := int(worldDepth/cellSize) + 1
+
+	totalCells := cellsX * cellsZ
+	cells := make([]Cell, totalCells)
+
+	return &Grid{
+		cellSize: cellSize,
+		cellsX:   cellsX,
+		cellsZ:   cellsZ,
+		bounds:   bounds,
+		cells:    cells,
+	}
+}
+
+func (g *Grid) WorldToCell(pos math.Vec3) CellCoord {
+	// - Convert world position to cell coordinates
+	// - Clamp to valid range
+}
+
+func (g *Grid) CellToIndex(coord CellCoord) int {
+	// - Convert 2D coord to 1D array index
+	// - return coord.Z * g.cellsX + coord.X
+}
+
+func (g *Grid) AddEntity(e entity.Entity) {
+	// - Get cell for entity position
+	// - Add to cell's entity list
+}
+
+func (g *Grid) RemoveEntity(id entity.EntityID, pos math.Vec3) {
+	// - Get cell for position
+	// - Remove from cell
+}
+
+func (g *Grid) MoveEntity(e entity.Entity, oldPos, newPos math.Vec3) {
+	// - Check if cell changed
+	// - If so, remove from old, add to new
+}
 
 // =============================================================================
 // RANGE QUERIES
