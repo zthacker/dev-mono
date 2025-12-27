@@ -2,17 +2,19 @@ package world
 
 import (
 	"context"
+	"log"
 	"net"
+	"sync/atomic"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
 	"realm-server/internal/entity"
+	realm_net "realm-server/internal/net"
 	"realm-server/internal/zone"
 )
 
 // Server is the main world server orchestrator.
-// This is analogous to your Service in the satellite system.
 //
 // A single world server instance handles:
 // - One or more zones (or zone shards)
@@ -35,11 +37,13 @@ type Server struct {
 	// Core managers
 	entityMgr *entity.Manager
 	zoneMgr   *zone.Manager
-	// sessionMgr *SessionManager
+	//sessionMgr *SessionManager
 
 	// Game loop
-	tickRate   int     // Ticks per second (typically 20)
-	tickDelta  float64 // Seconds per tick
+	tickLoop *TickLoop
+
+	// Metrics
+	activeConnections int64
 
 	// Lifecycle
 	ctx    context.Context
@@ -53,8 +57,8 @@ type Config struct {
 	NATSAddr string // e.g., "nats://localhost:4222"
 
 	// This server's identity
-	ServerID   uint32   // Unique ID for this server instance
-	ZoneIDs    []uint32 // Which zones this server handles
+	ServerID uint32   // Unique ID for this server instance
+	ZoneIDs  []uint32 // Which zones this server handles
 
 	// Game loop
 	TickRate int // Default 20 (50ms per tick)
@@ -64,63 +68,105 @@ type Config struct {
 	MaxEntitiesZone int
 }
 
-// TODO: Implement Server:
-//
-// func NewServer(cfg Config) *Server
-//
-// func (s *Server) Run(ctx context.Context) error
-//   Main startup sequence:
-//   1. Connect to NATS
-//   2. Initialize entity manager
-//   3. Initialize zone manager, load zone data
-//   4. Start TCP listener
-//   5. Start game loop
-//   6. Start accepting connections
-//   7. Block until context cancelled
-//
-// func (s *Server) Stop() error
-//   Graceful shutdown:
-//   1. Stop accepting new connections
-//   2. Notify all players of shutdown
-//   3. Save all player data
-//   4. Persist entity states to NATS KV
-//   5. Close NATS connection
+func NewServer(cfg Config) *Server {
+	return &Server{
+		cfg: cfg,
+	}
+}
+
+func (s *Server) Run(ctx context.Context) error {
+	s.ctx, s.cancel = context.WithCancel(ctx)
+
+	listener, err := net.Listen("tcp", s.cfg.BindAddr)
+	if err != nil {
+		return err
+	}
+	s.listener = listener
+	log.Printf("GameServer listening on: %s", s.cfg.BindAddr)
+
+	// tick rate setup
+	tickRate := s.cfg.TickRate
+	if tickRate == 0 {
+		tickRate = 20 // default to 20 tickets/sec
+	}
+	s.tickLoop = NewTickLoop(tickRate)
+	s.tickLoop.SetOnTick(s.onTick)
+
+	// start game loop in background
+	stopChan := make(chan struct{})
+	go s.tickLoop.Run(stopChan)
+
+	go s.acceptLoop()
+	// block until done
+	<-s.ctx.Done()
+
+	// cleanup
+	close(stopChan)
+	s.listener.Close()
+
+	return nil
+
+}
+
+func (s *Server) Stop() error {
+	// 	  Graceful shutdown:
+	//   1. Stop accepting new connections
+	//   2. Notify all players of shutdown
+	//   3. Save all player data
+	//   4. Persist entity states to NATS KV
+	//   5. Close NATS connection
+
+	return nil
+
+}
+
+func (s *Server) onTick(tick uint64, dt float64) {
+	// Phase 1: Input (TODO)
+	// s.processNATSMessages()
+
+	// Phase 2: Simulate (TODO)
+	// s.entityMgr.UpdateAll(dt)
+	// s.zoneMgr.UpdateAll(dt)
+
+	// Phase 3: Synchronize (TODO)
+	// s.broadcastUpdates()
+
+	// Periodic tasks
+	if tick%200 == 0 { // Every 10 seconds
+		log.Printf("Tick %d | Connections: %d | dt=%.3fs",
+			tick, atomic.LoadInt64(&s.activeConnections), dt)
+	}
+}
 
 // =============================================================================
 // CONNECTION HANDLING
 // =============================================================================
 
-// TODO: Implement connection acceptance:
-//
-// func (s *Server) acceptLoop()
-//   - Accept TCP connections
-//   - Create Session for each
-//   - Spawn goroutine to handle session
-//   - Respect MaxPlayers limit
-//
-// func (s *Server) handleSession(session *net.Session)
-//   - Run session packet loop
-//   - Cleanup on disconnect
+func (s *Server) acceptLoop() {
+	for {
+		playerConn, err := s.listener.Accept()
+		if err != nil {
+			select {
+			case <-s.ctx.Done():
+				return
+			default:
+				log.Printf("error connecting player: %s", err)
+				continue
+			}
+		}
 
-// =============================================================================
-// GAME LOOP
-// =============================================================================
+		playerSession := realm_net.NewSession(playerConn)
 
-// TODO: Implement the game tick loop:
-//
-// func (s *Server) gameLoop()
-//   - Use time.Ticker for consistent tick rate
-//   - Each tick:
-//     1. Process pending messages from NATS (cross-shard)
-//     2. Update all entities (entityMgr.UpdateAll)
-//     3. Process combat timers
-//     4. Update zone states (respawns, events)
-//     5. Broadcast state updates to clients
-//
-// Tick timing matters:
-// - 20 ticks/sec = 50ms per tick (WoW standard)
-// - If tick takes >50ms, you're falling behind
-// - Log warnings when ticks take too long
+		go s.handleSession(playerSession)
+	}
+}
+
+func (s *Server) handleSession(session *realm_net.Session) {
+	atomic.AddInt64(&s.activeConnections, 1)
+	defer atomic.AddInt64(&s.activeConnections, -1)
+
+	session.Run()
+}
 
 // =============================================================================
 // NATS INTEGRATION

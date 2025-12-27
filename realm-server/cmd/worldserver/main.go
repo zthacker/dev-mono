@@ -1,14 +1,15 @@
 package main
 
 import (
+	"context"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 
-	// Uncomment when implementing:
-	// "context"
-	// "realm-server/pkg/config"
+	"realm-server/internal/world"
 )
 
 // =============================================================================
@@ -73,21 +74,30 @@ func main() {
 	// }
 	//
 	// // 6. Create and start world server
-	// server := world.NewServer(world.Config{
-	//     BindAddr: cfg.Server.BindAddr,
-	//     // ... other config
-	// })
-	//
-	// ctx, cancel := context.WithCancel(context.Background())
-	// defer cancel()
-	//
-	// go func() {
-	//     if err := server.Run(ctx); err != nil {
-	//         log.Printf("Server error: %v", err)
-	//     }
-	// }()
-	//
-	// log.Printf("World Server started on %s", cfg.Server.BindAddr)
+	server := world.NewServer(world.Config{
+		BindAddr: ":8085",
+		ServerID: 1,
+		TickRate: 20, // 20 ticks/sec = 50ms per tick)
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		if err := server.Run(ctx); err != nil {
+			log.Printf("Server error: %v", err)
+		}
+	}()
+
+	// Start pprof server for profiling
+	go func() {
+		log.Println("pprof available at http://localhost:6060/debug/pprof/")
+		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+			log.Printf("pprof server error: %v", err)
+		}
+	}()
+
+	log.Printf("World Server started on %s", ":8085")
 
 	// Wait for shutdown signal
 	sigCh := make(chan os.Signal, 1)

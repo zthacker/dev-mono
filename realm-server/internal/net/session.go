@@ -1,6 +1,8 @@
 package net
 
 import (
+	"errors"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -23,9 +25,9 @@ type Session struct {
 	closeMu  sync.Mutex
 
 	// Authentication
-	AccountID   uint32
-	AccountName string
-	Permissions uint32 // Bitflags for GM commands, etc.
+	AccountID     uint32
+	AccountName   string
+	Permissions   uint32 // Bitflags for GM commands, etc.
 	Authenticated bool
 
 	// Current player (nil until CMSG_PLAYER_LOGIN)
@@ -37,38 +39,71 @@ type Session struct {
 	Latency      time.Duration // Measured from ping/pong
 
 	// Rate limiting
-	// packetCount uint32
-	// lastReset   time.Time
+	packetCount uint32
+	lastReset   time.Time
 }
 
-// TODO: Implement Session:
-//
-// func NewSession(conn net.Conn) *Session
-//   - Initialize send channel (buffer size ~64-256)
-//   - Set LastActivity
-//   - Start send goroutine
-//
-// func (s *Session) Run()
-//   - Main receive loop
-//   - Read packets from conn
-//   - Dispatch to handler
-//   - Handle disconnect
-//
-// func (s *Session) Send(pkt *Packet)
-//   - Queue packet on sendChan
-//   - Non-blocking (drop if full? or disconnect?)
-//
-// func (s *Session) sendLoop()
-//   - Goroutine that writes from sendChan to conn
-//   - Batches multiple small packets together
-//
-// func (s *Session) Close()
-//   - Mark closed
-//   - Close connection
-//   - Cleanup player if attached
-//
-// func (s *Session) IsAlive() bool
-//   - Check if session is still valid
+func NewSession(conn net.Conn) *Session {
+	return &Session{
+		conn:         conn,
+		sendChan:     make(chan *Packet, 256),
+		LastActivity: time.Now(),
+	}
+}
+
+func (s *Session) Run() {
+	// start send thread
+	go s.sendLoop()
+
+	for {
+		pkt, err := ReadPacketFromConn(s.conn)
+		if err != nil {
+			break
+		}
+		s.LastActivity = time.Now()
+		DispatchPacket(s, pkt)
+	}
+
+	s.Close()
+}
+
+func (s *Session) Send(pkt *Packet) {
+	s.closeMu.Lock()
+	defer s.closeMu.Unlock()
+
+	if s.closed {
+		return
+	}
+
+	s.sendChan <- pkt
+}
+
+func (s *Session) sendLoop() {
+	for pkt := range s.sendChan {
+		WritePacketToConn(s.conn, pkt)
+	}
+}
+
+func (s *Session) Close() {
+	s.closeMu.Lock()
+	defer s.closeMu.Unlock()
+
+	if s.closed {
+		return
+	}
+	s.closed = true
+
+	s.conn.Close()
+	close(s.sendChan)
+
+	if s.Player != nil {
+		s.Player = nil
+	}
+}
+
+func (s *Session) IsAlive() bool {
+	return !s.closed && time.Since(s.LastActivity) < 30*time.Second
+}
 
 // =============================================================================
 // PACKET HANDLING
@@ -77,19 +112,42 @@ type Session struct {
 // PacketHandler is the signature for opcode handlers.
 type PacketHandler func(s *Session, pkt *Packet) error
 
-// HandlerRegistry maps opcodes to handlers.
-// TODO: Implement as a simple map or switch statement:
-//
-// var handlers = map[Opcode]PacketHandler{
-//     CMSG_PING: handlePing,
-//     CMSG_MOVE_HEARTBEAT: handleMoveHeartbeat,
-//     ...
-// }
-//
-// func DispatchPacket(s *Session, pkt *Packet) error
-//   - Look up handler
-//   - Call it
-//   - Log unknown opcodes
+//HandlerRegistry maps opcodes to handlers.
+
+var handlers = map[Opcode]PacketHandler{
+	CMSG_PING:           handlePing,
+	CMSG_MOVE_HEARTBEAT: handleMoveHeartbeat,
+}
+
+func handlePing(s *Session, pkt *Packet) error {
+	reader := NewPacketReader(pkt.Payload)
+	seq, err := reader.ReadUint32()
+	if err != nil {
+		return err
+	}
+
+	writer := NewPacketWriter(SMSG_PONG)
+	writer.WriteUint32(seq)
+	s.Send(writer.Finish())
+
+	return nil
+}
+
+func handleMoveHeartbeat(s *Session, pkt *Packet) error {
+	s.LastActivity = time.Now()
+
+	return nil
+}
+
+func DispatchPacket(s *Session, pkt *Packet) error {
+	handler, ok := handlers[pkt.Opcode]
+	if !ok {
+		log.Printf("unknown opcode: %d", pkt.Opcode)
+		return errors.New("unknown opcode")
+	}
+
+	return handler(s, pkt)
+}
 
 // =============================================================================
 // RATE LIMITING
