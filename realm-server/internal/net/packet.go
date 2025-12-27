@@ -207,6 +207,7 @@ func (w *PacketWriter) Finish() *Packet {
 // =============================================================================
 
 func ReadPacketFromConn(r io.Reader) (*Packet, error) {
+	// using ReadFull to handle TCP partials
 	//Read 2-byte size header
 	header := make([]byte, 2)
 	if _, err := io.ReadFull(r, header); err != nil {
@@ -231,7 +232,6 @@ func ReadPacketFromConn(r io.Reader) (*Packet, error) {
 		Payload: payload,
 	}, nil
 
-	//Handle partial reads (TCP)
 }
 
 func WritePacketToConn(w io.Writer, pkt *Packet) error {
@@ -256,7 +256,7 @@ func WritePacketToConn(w io.Writer, pkt *Packet) error {
 	return nil
 }
 
-// Note: For production, you'd want:
+// TODO:
 // - Packet encryption (after auth handshake)
 // - Compression for large packets
 // - Packet pooling to reduce allocations

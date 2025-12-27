@@ -102,7 +102,7 @@ const (
 
 // - (f MoveFlags) Has(flag MoveFlags) bool
 func (f MoveFlags) Has(flag MoveFlags) bool {
-	return f&flag == f
+	return f&flag == flag
 }
 
 // - (f *MoveFlags) Set(flag MoveFlags)

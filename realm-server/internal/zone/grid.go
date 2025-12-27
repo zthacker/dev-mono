@@ -61,6 +61,11 @@ func NewGrid(bounds math.WorldBounds, cellSize float32) *Grid {
 	totalCells := cellsX * cellsZ
 	cells := make([]Cell, totalCells)
 
+	// init each cell's map
+	for i := range cells {
+		cells[i].entities = make(map[entity.EntityID]entity.Entity)
+	}
+
 	return &Grid{
 		cellSize: cellSize,
 		cellsX:   cellsX,
@@ -71,61 +76,177 @@ func NewGrid(bounds math.WorldBounds, cellSize float32) *Grid {
 }
 
 func (g *Grid) WorldToCell(pos math.Vec3) CellCoord {
-	// - Convert world position to cell coordinates
-	// - Clamp to valid range
+	// Offset position relative to grid origin
+	relativeX := pos.X - g.bounds.Min.X
+	relativeZ := pos.Z - g.bounds.Min.Z
+
+	// Divide by cell size and truncate to get cell index
+	cellX := int(relativeX / g.cellSize)
+	cellZ := int(relativeZ / g.cellSize)
+
+	// Clamp to valid range (handle positions outside bounds)
+	if cellX < 0 {
+		cellX = 0
+	}
+	if cellX >= g.cellsX {
+		cellX = g.cellsX - 1
+	}
+	if cellZ < 0 {
+		cellZ = 0
+	}
+	if cellZ >= g.cellsZ {
+		cellZ = g.cellsZ - 1
+	}
+
+	return CellCoord{X: cellX, Z: cellZ}
 }
 
+// The formula:
+// index = Z * cellsX + X
+// Examples with cellsX = 4:
+// Cell (0, 0): index = 0 * 4 + 0 = 0
+// Cell (3, 0): index = 0 * 4 + 3 = 3
+// Cell (0, 1): index = 1 * 4 + 0 = 4   <- Start of row 1
+// Cell (2, 1): index = 1 * 4 + 2 = 6
+// Cell (3, 2): index = 2 * 4 + 3 = 11
 func (g *Grid) CellToIndex(coord CellCoord) int {
 	// - Convert 2D coord to 1D array index
-	// - return coord.Z * g.cellsX + coord.X
+	return coord.Z*g.cellsX + coord.X
 }
 
 func (g *Grid) AddEntity(e entity.Entity) {
 	// - Get cell for entity position
-	// - Add to cell's entity list
+	entityCoord := g.WorldToCell(e.Movement().Position)
+
+	// Index
+	index := g.CellToIndex(entityCoord)
+
+	// add to map
+	g.cells[index].entities[e.ID()] = e
+
 }
 
 func (g *Grid) RemoveEntity(id entity.EntityID, pos math.Vec3) {
 	// - Get cell for position
+	entityCoord := g.WorldToCell(pos)
+
+	// Index
+	index := g.CellToIndex(entityCoord)
+
 	// - Remove from cell
+	delete(g.cells[index].entities, id)
+
 }
 
 func (g *Grid) MoveEntity(e entity.Entity, oldPos, newPos math.Vec3) {
 	// - Check if cell changed
+	oldCoord := g.WorldToCell(oldPos)
+	newCoord := g.WorldToCell(newPos)
+
 	// - If so, remove from old, add to new
+	if oldCoord.X != newCoord.X || oldCoord.Z != newCoord.Z {
+		// remove from old cell
+		oldIndex := g.CellToIndex(oldCoord)
+		delete(g.cells[oldIndex].entities, e.ID())
+
+		// add to new cell
+		newIndex := g.CellToIndex(newCoord)
+		g.cells[newIndex].entities[e.ID()] = e
+	}
 }
 
 // =============================================================================
 // RANGE QUERIES
 // =============================================================================
 
-// TODO: Implement range queries:
-//
-// func (g *Grid) GetEntitiesInRange(center math.Vec3, radius float32) []entity.Entity
-//   Algorithm:
-//   1. Calculate cell range: (center-radius) to (center+radius)
-//   2. For each cell in range:
-//      - For each entity in cell:
-//        - If distance <= radius, add to result
-//   3. Return results
-//
-//   Optimization: Use radiusSq and DistanceSq to avoid sqrt
-//
-// func (g *Grid) GetCellsInRange(center math.Vec3, radius float32) []CellCoord
-//   - Just return the cell coordinates, let caller iterate
+func (g *Grid) GetEntitiesInRange(center math.Vec3, radius float32) []entity.Entity {
+	// get cells in range
+	cellCoords := g.GetCellsInRange(center, radius)
+
+	radiusSq := radius * radius
+
+	var result []entity.Entity
+
+	for _, coord := range cellCoords {
+		index := g.CellToIndex(coord)
+		cell := &g.cells[index]
+
+		for _, e := range cell.entities {
+			pos := e.Transform().Position
+
+			// check distance
+			distSq := center.DistanceSq(pos)
+			if distSq <= radiusSq {
+				result = append(result, e)
+			}
+		}
+	}
+
+	return result
+}
+
+func (g *Grid) GetCellsInRange(center math.Vec3, radius float32) []CellCoord {
+	// Box corners
+	minPos := math.Vec3{
+		X: center.X - radius,
+		Y: center.Y,
+		Z: center.Z - radius,
+	}
+
+	maxPos := math.Vec3{
+		X: center.X + radius,
+		Y: center.Y,
+		Z: center.Z + radius,
+	}
+
+	// convert to cell coords
+	minCell := g.WorldToCell(minPos)
+	maxCell := g.WorldToCell(maxPos)
+
+	// collect all cells in the rectangle
+	var cells []CellCoord
+	for z := minCell.Z; z <= maxCell.Z; z++ {
+		for x := minCell.X; x <= maxCell.X; x++ {
+			cells = append(cells, CellCoord{X: x, Z: z})
+		}
+	}
+
+	return cells
+}
 
 // =============================================================================
 // NEIGHBOR ITERATION
 // =============================================================================
 
-// For AOI updates, you often need to iterate neighboring cells.
+func (g *Grid) GetNeighborCells(coord CellCoord, radius int) []CellCoord {
+	var cells []CellCoord
 
-// TODO: Implement neighbor helpers:
-//
-// func (g *Grid) GetNeighborCells(coord CellCoord, radius int) []CellCoord
-//   - Return cells within 'radius' cells of coord
-//   - radius=1 gives 9 cells (3x3)
-//   - radius=2 gives 25 cells (5x5)
-//
-// func (g *Grid) ForEachEntityInRadius(center math.Vec3, radius float32, fn func(entity.Entity))
-//   - Efficient iteration without allocating result slice
+	for z := coord.Z - radius; z <= coord.Z+radius; z++ {
+		for x := coord.X - radius; x <= coord.X+radius; x++ {
+			// Skip if out of bounds
+			if x < 0 || x >= g.cellsX || z < 0 || z >= g.cellsZ {
+				continue
+			}
+			cells = append(cells, CellCoord{X: x, Z: z})
+		}
+	}
+
+	return cells
+}
+
+func (g *Grid) ForEachEntityInRadius(center math.Vec3, radius float32, fn func(entity.Entity)) {
+	cellCoords := g.GetCellsInRange(center, radius)
+	radiusSq := radius * radius
+
+	for _, coord := range cellCoords {
+		index := g.CellToIndex(coord)
+		cell := &g.cells[index]
+
+		for _, e := range cell.entities {
+			pos := e.Transform().Position
+			if center.DistanceSq(pos) <= radiusSq {
+				fn(e)
+			}
+		}
+	}
+}
