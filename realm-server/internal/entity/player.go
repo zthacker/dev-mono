@@ -1,15 +1,8 @@
 package entity
 
-// Note: Session is defined as interface here to avoid circular import with net package.
-// The actual Session type is in internal/net/session.go
-
-// Session interface breaks circular dependency with net package.
-// Implement this interface in internal/net/session.go
-type Session interface {
-	Send(opcode uint16, payload []byte)
-	Close()
-	IsAlive() bool
-}
+import (
+	"realm-server/internal/net"
+)
 
 // Player represents a connected player character.
 // Each player has:
@@ -20,15 +13,15 @@ type Player struct {
 	*BaseEntity
 
 	// Network session - nil if disconnected
-	Session Session
+	Session *net.Session
 
 	// Character data (loaded from DB)
-	Name      string
-	Race      uint8
-	Class     uint8
-	Gender    uint8
-	Faction   uint8 // 0 = Alliance, 1 = Horde (example)
-	Stats     Stats
+	Name       string
+	Race       uint8
+	Class      uint8
+	Gender     uint8
+	Faction    uint8 // 0 = Alliance, 1 = Horde (example)
+	Stats      Stats
 	Experience uint32
 	Money      uint32
 
@@ -43,13 +36,19 @@ type Player struct {
 	// Cooldowns   *CooldownManager
 }
 
-// TODO: Implement Player:
-//
-// func NewPlayer(id EntityID, session *net.Session) *Player
-//   - Create BaseEntity
-//   - Attach session
-//   - Initialize empty character data (will be loaded from DB)
-//
+func NewPlayer(id EntityID, session *net.Session) *Player {
+	// - Create BaseEntity
+	// - Attach session
+	// - Initialize empty character data (will be loaded from DB)
+
+	baseEntity := NewBaseEntity(id)
+
+	return &Player{
+		BaseEntity: baseEntity,
+		Session:    session,
+	}
+}
+
 // func (p *Player) Update(dt float64)
 //   - Process any pending actions
 //   - Update combat timers
@@ -81,9 +80,9 @@ const (
 	BaseRunSpeed    float32 = 7.0
 	BaseSwimSpeed   float32 = 4.7
 	BaseFlySpeed    float32 = 7.0
-	MountedSpeed100 float32 = 14.0  // 100% mount
-	MountedSpeed150 float32 = 21.0  // 150% mount (epic ground)
-	MountedSpeed310 float32 = 21.7  // 310% flying
+	MountedSpeed100 float32 = 14.0 // 100% mount
+	MountedSpeed150 float32 = 21.0 // 150% mount (epic ground)
+	MountedSpeed310 float32 = 21.7 // 310% flying
 )
 
 // TODO: Implement movement speed calculation:

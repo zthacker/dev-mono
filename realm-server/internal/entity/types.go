@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"sync/atomic"
 	"time"
 
 	"realm-server/pkg/math"
@@ -33,6 +34,23 @@ const (
 	EntityTypeObject EntityType = 4
 	EntityTypeItem   EntityType = 5
 )
+
+// TODO: replace this with DB or Snowflake-style IDs (timestamp + server ID + sequence)
+// for now it'll just be some atomic counter for testing
+var (
+	playerIDcounter uint64
+	npcIDcounter    uint64
+)
+
+func NextPlayerID() EntityID {
+	id := atomic.AddUint64(&playerIDcounter, 1)
+	return NewEntityID(EntityTypePlayer, id)
+}
+
+func NextNPCID() EntityID {
+	id := atomic.AddUint64(&playerIDcounter, 1)
+	return NewEntityID(EntityTypeNPC, id)
+}
 
 // - NewEntityID(typ EntityType, id uint64) EntityID - pack type and id
 func NewEntityID(typ EntityType, id uint64) EntityID {
