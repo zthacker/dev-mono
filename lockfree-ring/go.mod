@@ -1,0 +1,3 @@
+module lockfree-ring
+
+go 1.25.3
