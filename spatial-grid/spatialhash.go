@@ -16,10 +16,10 @@ func NewSpatialHash(cellSize float64, worldWidth, worldHeight float64) *SpatialH
 	gridWidth := int(worldWidth / cellSize)
 
 	return &SpatialHash{
-		gridWidth:  gridHeight,
-		gridHeight: gridWidth,
+		gridWidth:  gridWidth,
+		gridHeight: gridHeight,
 		cellSize:   cellSize,
-		cells:      make([][]Entity, gridWidth+gridHeight),
+		cells:      make([][]Entity, gridWidth*gridHeight),
 	}
 }
 
@@ -82,4 +82,24 @@ func (sh *SpatialHash) Query(x float64, y float64, radius float64) []Entity {
 		}
 	}
 	return entities
+}
+
+func (sh *SpatialHash) QueryDistanceFilter(x float64, y float64, radius float64) []Entity {
+	entities := sh.Query(x, y, radius)
+
+	var result []Entity
+	radiusSq := radius * radius
+
+	for _, e := range entities {
+		ex, ey := e.Position()
+		dx := x - ex
+		dy := y - ey
+		distSq := dx*dx + dy*dy
+
+		if distSq <= radiusSq {
+			result = append(result, e)
+		}
+	}
+
+	return result
 }
