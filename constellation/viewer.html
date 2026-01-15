@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Constellation Viewer</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    #info { position: absolute; top: 10px; left: 10px; color: white; font-family: monospace; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <div id="info">Drag to rotate, scroll to zoom</div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script>
+    // Scene setup
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111122);
+    
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+    camera.position.z = 2000;
+    
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    
+    // Load constellation data - check URL params for route
+    const urlParams = new URLSearchParams(window.location.search);
+    const from = urlParams.get('from');
+    const to = urlParams.get('to');
+    const apiUrl = from && to ? `/api/data?from=${from}&to=${to}` : '/api/data';
+
+    fetch(apiUrl)
+      .then(r => r.json())
+      .then(data => {
+        const nodePositions = {};
+        
+        // Draw nodes
+        data.nodes.forEach(node => {
+          const color = node.type === 'ground' ? 0x00ff00 : 0x4488ff;
+          const size = node.type === 'ground' ? 20 : 8;
+          
+          const geometry = new THREE.SphereGeometry(size, 16, 16);
+          const material = new THREE.MeshBasicMaterial({ color });
+          const sphere = new THREE.Mesh(geometry, material);
+          
+          sphere.position.set(node.x, node.y, node.z);
+          scene.add(sphere);
+          
+          nodePositions[node.id] = new THREE.Vector3(node.x, node.y, node.z);
+        });
+        
+        // Draw edges
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0x335577, transparent: true, opacity: 0.3 });
+        data.edges.forEach(edge => {
+          const points = [nodePositions[edge.from], nodePositions[edge.to]];
+          const geometry = new THREE.BufferGeometry().setFromPoints(points);
+          const line = new THREE.Line(geometry, lineMaterial);
+          scene.add(line);
+        });
+        
+        // Draw "Earth" reference sphere
+        const earthGeo = new THREE.SphereGeometry(580, 32, 32);
+        const earthMat = new THREE.MeshBasicMaterial({ color: 0x223344, transparent: true, opacity: 0.3, wireframe: true });
+        scene.add(new THREE.Mesh(earthGeo, earthMat));
+
+        // Draw route (highlighted path)
+        if (data.route && data.route.length > 1) {
+          const routeMaterial = new THREE.LineBasicMaterial({
+            color: 0xff4444,
+            linewidth: 2
+          });
+
+          for (let i = 0; i < data.route.length - 1; i++) {
+            const from = nodePositions[data.route[i]];
+            const to = nodePositions[data.route[i + 1]];
+            if (from && to) {
+              const geometry = new THREE.BufferGeometry().setFromPoints([from, to]);
+              const line = new THREE.Line(geometry, routeMaterial);
+              scene.add(line);
+            }
+          }
+
+          // Highlight route endpoints
+          data.route.forEach((nodeId, idx) => {
+            if (idx === 0 || idx === data.route.length - 1) {
+              const pos = nodePositions[nodeId];
+              if (pos) {
+                const ringGeo = new THREE.RingGeometry(25, 35, 32);
+                const ringMat = new THREE.MeshBasicMaterial({ color: 0xff4444, side: THREE.DoubleSide });
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                ring.position.copy(pos);
+                ring.lookAt(camera.position);
+                scene.add(ring);
+              }
+            }
+          });
+        }
+
+        let infoText = `<br>Satellites: ${data.nodes.filter(n => n.type === 'satellite').length}`;
+        infoText += `<br>Ground Stations: ${data.nodes.filter(n => n.type === 'ground').length}`;
+        infoText += `<br>Links: ${data.edges.length}`;
+        if (data.route && data.route.length > 1) {
+          infoText += `<br><br><span style="color:#ff4444">Route (${data.route.length} hops):</span>`;
+          infoText += `<br><span style="color:#ff4444">${data.route.join(' → ')}</span>`;
+        }
+        document.getElementById('info').innerHTML += infoText;
+      });
+    
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+    
+    // Handle resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
