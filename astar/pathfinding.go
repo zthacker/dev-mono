@@ -7,7 +7,6 @@ import "math"
 // g(n) = actual cost from start to this node
 // h(n) = estimated cost from this node to goal (heuristic)
 // f(n) = total estimated cost (lower = better)
-
 type Node struct {
 	X, Y      int     // position
 	Cost      float64 // cost from start
@@ -90,9 +89,9 @@ func reconstructPath(node *Node) []*Node {
 
 func FindPath(grid *Grid, startX, startY, goalX, goalY int) []*Node {
 	// openList are the nodes to explore
-	openList := []*Node{}
+	openList := &NodeHeap{}
 
-	// closed set are the nodes already explores
+	// closed set are the nodes already explored
 	closedSet := make(map[[2]int]bool)
 
 	// look up for nodes by position to update them
@@ -107,28 +106,18 @@ func FindPath(grid *Grid, startX, startY, goalX, goalY int) []*Node {
 		Parent:    nil,
 	}
 
-	openList = append(openList, startNode)
+	openList.Push(startNode) // Changed: use Push instead of append
 	nodeMap[[2]int{startX, startY}] = startNode
 
 	// start our loop
-	for len(openList) > 0 {
-		// find nod with lowest cost
-		lowestIdx := 0
-		for i, n := range openList {
-			if n.TotalEstimatedCost() < openList[lowestIdx].TotalEstimatedCost() {
-				lowestIdx = i
-			}
-		}
-		current := openList[lowestIdx]
+	for openList.Len() > 0 { // Changed: use Len() instead of len()
+		// Pop gives us lowest cost node automatically - O(log n) instead of O(n)!
+		current, _ := openList.Pop()
 
 		// see if it's the goal
 		if current.X == goalX && current.Y == goalY {
 			return reconstructPath(current)
 		}
-
-		// remove from open and add to close
-		openList[lowestIdx] = openList[len(openList)-1]
-		openList = openList[:len(openList)-1]
 
 		// add to closed set
 		closedSet[[2]int{current.X, current.Y}] = true
@@ -152,7 +141,7 @@ func FindPath(grid *Grid, startX, startY, goalX, goalY int) []*Node {
 					Heuristic: manhattanDistance(pos[0], pos[1], goalX, goalY),
 					Parent:    current,
 				}
-				openList = append(openList, neighbor)
+				openList.Push(neighbor) // Changed: use Push instead of append
 				nodeMap[pos] = neighbor
 			} else if possibleCost < existing.Cost {
 				// found a better path
